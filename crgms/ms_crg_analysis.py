@@ -40,6 +40,7 @@ from typing import Tuple, Union
 try:
     import ms_analysis as msa
 except Exception as e:
+    print(f"Error importing ms_analysis as msa:\n{e}\n")
     if Path(__file__).parent.name == "crgms":
         from crgms import ms_analysis as msa
 
@@ -48,7 +49,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="[%(levelname)s]: %(name)s, %(funcName)s:\n\t%(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
-    filename="cms2csv.log",
+    filename="crgms.log",
     encoding="utf-8",
 )
 logger = logging.getLogger(__name__)
@@ -105,7 +106,7 @@ class WeightedCorr:
                 xyw_df.dropna()
             else:
                 xyw_df = pd.concat([x, y, w], axis=1).dropna()
-                
+
             self.x, self.y, self.w = (pd.to_numeric(xyw_df[c], errors="coerce").values
                                       for c in xyw_df.columns)
             self.df = None
@@ -145,7 +146,7 @@ class WeightedCorr:
           The correlation value (float) if class initialized with xyw_df, or (x, y, w).
           The correlation matrix as pd.DataFrame (m, m), if class initialized with (df, wcol).
         """
-        
+
         if method not in ["pearson", "spearman"]:
             logger.error(f"ValueError: correlation method not in ['pearson','spearman']")
             sys.exit(2)
@@ -522,7 +523,7 @@ def get_topN_crg_microstates(mcce_dir: Path,
            f"Total unique conformers ms: {mc.N_uniq:,}\n"
            )
     logger.info(msg)
-    
+
     ms_by_E = mc.sort_microstates()
     ms_orig_lst = [[ms.E, ms.count, ms.state] for ms in ms_by_E]
     ms_free_residues = free_residues_list(conformers, mc.free_residues)
@@ -558,7 +559,7 @@ def crg_msa_with_correlation(mcce_dir: Path,
                              ph_pt: int=7,
                              res_of_interest: list=IONIZABLES,
                              corr_cutoff: float=0.):
-    
+
     h3_fp, msout_fp = check_mcce_input_files(mcce_dir, ph_pt)
 
     conformers = msa.read_conformers(h3_fp)
@@ -593,7 +594,7 @@ def crg_msa_with_correlation(mcce_dir: Path,
     res_crg_csv = mcce_dir.joinpath("all_res_crg.csv")
     combine_free_fixed_residues(fixed_res_crg_df,
                                 free_res_crg_count_df).to_csv(res_crg_csv)
-    
+
     res_crg_count_csv = mcce_dir.joinpath("all_res_crg_count.csv")
     free_res_crg_count_df.to_csv(res_crg_count_csv, header=True)
 
@@ -603,7 +604,7 @@ def crg_msa_with_correlation(mcce_dir: Path,
     corr_heat_map(df_correlation, mcce_dir)
 
     logger.info("Charge microstate analysis with correlation over.") 
-    
+
     return
 
 
