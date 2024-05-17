@@ -604,7 +604,7 @@ def crg_msa_with_correlation(mcce_dir: Path,
 def crgmsa_parser() -> ArgumentParser:
 
     p = ArgumentParser(
-        prog="Charge MS_Analysis",
+        prog="ms_crg_analysis.py",
         description=__doc__,
         formatter_class=RawDescriptionHelpFormatter,
     )
