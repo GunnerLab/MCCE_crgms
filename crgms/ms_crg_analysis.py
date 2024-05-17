@@ -5,6 +5,12 @@ The charge microstates analysis processes MCCE miscrostates to obtain
 charge microstates for residues of interest (default: ionizable residues)
 and plot their correlation.
 
+Note:
+The -top_n command line argument acts as a switch: if a value is given,
+the top n charge microstates are calculated and saved in a csv file.
+To obtain the charge-microstates analysis with correlation, do not
+include -top_n at the command line.
+
 Output files:
 
 Plots:
@@ -662,4 +668,4 @@ def crgmsa_cli(argv=None):
 
 if __name__ == "__main__":
 
-    crgmsa_cli(sys.argv)
+    crgmsa_cli(sys.argv[1:])
