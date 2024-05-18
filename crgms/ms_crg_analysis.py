@@ -1,15 +1,20 @@
 #!/usr/bin/env python
 
 __doc__ = """
-The charge microstates analysis processes MCCE miscrostates to obtain
-charge microstates for residues of interest (default: ionizable residues)
-and plot their correlation.
+Module `ms_crg_analysis.py` holds functions/classes to process MCCE
+microstates into charge microstates for residues of interest (default:
+ionizable residues), or for all residues if list variable `res_of_interest`
+is empty.
+
+There are two tasks defined as functions that the cli can call:
+  - Produce a charged microstate analysis using weighted correlation,
+    along with various plots.
+  - Return the <top_n> microstates into a csv file.
 
 Note:
-The -top_n command line argument acts as a switch: if a value is given,
-the top n charge microstates are calculated and saved in a csv file.
-To obtain the charge-microstates analysis with correlation, do not
-include -top_n at the command line.
+The -top_n command line argument acts as a switch: if a value is given, the
+top n charge microstates are calculated and saved in a csv file. To obtain the
+charge-microstates analysis with correlation, do not include -top_n .
 
 Output files:
 Plots:
