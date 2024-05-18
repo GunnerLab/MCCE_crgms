@@ -12,7 +12,6 @@ To obtain the charge-microstates analysis with correlation, do not
 include -top_n at the command line.
 
 Output files:
-
 Plots:
   Histogram figure: enthalpy_dis.pdf
   Plot of unique charge distribution: all_en_cr_vs_log(count).pdf
@@ -20,8 +19,7 @@ Plots:
 CSV files:
   all_res_crg.csv
   all_res_crg_count.csv
-  top_<N>_crg_ms.csv
-
+  top_<top_n>_crg_ms.csv
 """
 
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
@@ -37,12 +35,6 @@ import seaborn as sns
 from scipy.stats import skewnorm, rankdata
 import sys
 from typing import Tuple, Union
-try:
-    import ms_analysis as msa
-except Exception as e:
-    print(f"Error importing ms_analysis as msa:\n{e}\n")
-    if Path(__file__).parent.name == "crgms":
-        from crgms import ms_analysis as msa
 
 
 logging.basicConfig(
@@ -53,6 +45,19 @@ logging.basicConfig(
     encoding="utf-8",
 )
 logger = logging.getLogger(__name__)
+
+
+try:
+    import ms_analysis as msa
+except Exception as e1:
+    try:
+        if Path(__file__).parent.name == "crgms":
+            from crgms import ms_analysis as msa
+    except Exception as e2:
+        logger.exception(f"Error importing ms_analysis as msa:\n{e1}\n")
+        logger.exception(f"Error importing ms_analysis from crgms:\n{e2}\n")
+        sys.exit(2)
+
 
 
 IONIZABLES = ["ASP", "GLU", "ARG", "HIS", "LYS", "CYS", "TYR", "NTR", "CTR"]
@@ -261,13 +266,8 @@ def corr_heat_map(df_corr: pd.DataFrame, save_dir: Path):
 # <<< plotting functions - end ....................................
 
 
-def free_residues_list(conformers: list, free_res: list) -> list:
-
-    return [conformers[res[0]].resid for res in free_res]
-
-
-def fixed_residues(conformers: list,
-                   fixed_iconfs: list,
+def fixed_residues(fixed_iconfs: list,
+                   conformers: list,
                    res_of_interest: list=IONIZABLES) -> Tuple[float, pd.DataFrame]:
     """
      Return a 2-tuple: fixed res background charge,
@@ -279,8 +279,9 @@ def fixed_residues(conformers: list,
         if conf.iconf in fixed_iconfs:
             dd[conf.resid] = conf.crg
     fixed_backgrd_charge = sum(dd.values())
-    fixed_roi_d = {k:dd[k] for k in dd if k[:3] in res_of_interest}
-    fixed_res_crg_df = pd.DataFrame(fixed_roi_d.items(), columns=["Residue","crg"])
+    if res_of_interest:
+        dd = {k:dd[k] for k in dd if k[:3] in res_of_interest}
+    fixed_res_crg_df = pd.DataFrame(dd.items(), columns=["Residue","crg"])
 
     return fixed_backgrd_charge, fixed_res_crg_df
 
@@ -300,7 +301,7 @@ def convert_ms_crg(l, d):
 
 
 def find_uniq_crgms_count_order(crg_list_ms: list,
-                                E_range: Tuple[float, float]=None) -> Tuple[list,list,list,list]:
+                                E_range: Tuple[float,float]=None) -> Tuple[list,list,list,list]:
     """
     Args:
       crg_list_ms: the charge microstates list; assumed to be sorted in increasing order.
@@ -309,9 +310,9 @@ def find_uniq_crgms_count_order(crg_list_ms: list,
     Return:
       A 4-tuple: all_crg_ms_unique, all_count, unique_crg_state_order, energy_diff_all.
 
-      `unique_crg_state_order` gives the order of unique charge state based on energy.
+      `unique_crg_state_order` gives the order/rank of unique charge state based on energy.
       The lowest energy charge state will give the order 1 and then second unique charge
-      state will give the order 2. This order is based on unique charge ms order.
+      state will give the order 2.
     """
 
     if E_range is None:
@@ -378,7 +379,7 @@ def find_uniq_crgms_count_order(crg_list_ms: list,
 def concat_crgms_dfs(unique_crgms: list,
                      ms_count: list,
                      ms_order: list,
-                     free_res: list,
+                     free_res_df: pd.DataFrame,
                      background_charge: float,
                      res_of_interest: list=IONIZABLES) -> pd.DataFrame:
 
@@ -387,27 +388,33 @@ def concat_crgms_dfs(unique_crgms: list,
     ms_order_df = pd.DataFrame(ms_order, columns=["Order"]).T
 
     crg_ms_count_df = pd.concat([uniq_crg_df, ms_count_df, ms_order_df])
-    free_res_df = pd.DataFrame(free_res, columns=["Residue"])
     crg_count_res_1 = pd.concat([free_res_df, crg_ms_count_df], axis=1)
     crg_count_res_1.loc["Count", "Residue"] = "Count"
     crg_count_res_1.loc["Order", "Residue"] = "Order"
 
     all_crg_count_res = crg_count_res_1.set_index("Residue")
-    all_crg_count_res = all_crg_count_res.sort_values(by="Count", axis=1, ascending=False)
+    all_crg_count_res = all_crg_count_res.sort_values(by="Count", axis=1,
+                                                      ascending=False)
     # rename columns
     all_crg_count_res.columns = range(all_crg_count_res.shape[1])
     all_crg_count_res = all_crg_count_res.T.set_index("Order")
     all_crg_count_res.index = all_crg_count_res.index.astype(int)
-    all_crg_count_res["Occupancy"] = (all_crg_count_res["Count"]/sum(all_crg_count_res["Count"])).round(3)
-    all_crg_count_res['Sum_crg_protein'] = all_crg_count_res.iloc[:, :-2].sum(axis=1) + background_charge
+    all_crg_count_res["Occupancy"] = ((all_crg_count_res["Count"]/sum(all_crg_count_res["Count"]))
+                                      .round(3)
+    )
+    all_crg_count_res['Sum_crg_protein'] = (all_crg_count_res.iloc[:,:-2].sum(axis=1)
+                                            + background_charge
+    )
 
-    cols_to_drop = [c for c in all_crg_count_res.columns
-                    if (c[:3] not in res_of_interest)
-                    and (c not in ["Occupancy", "Count", "Sum_crg_protein"])
-                   ]
-    crg_count_res = all_crg_count_res.drop(cols_to_drop, axis=1)
+    if res_of_interest:
+        cols_to_drop = [c for c in all_crg_count_res.columns
+                        if (c[:3] not in res_of_interest)
+                        and (c not in ["Occupancy","Count","Sum_crg_protein"])
+                       ]
+        out_df = all_crg_count_res.drop(cols_to_drop, axis=1).sort_index()
+        return out_df
 
-    return crg_count_res.sort_index()
+    return all_crg_count_res.sort_index()
 
 
 def combine_free_fixed_residues(fixed_residue_df: pd.DataFrame,
@@ -428,13 +435,16 @@ def correlation_data_parsing(df: pd.DataFrame) -> pd.DataFrame:
     all_crg_count = df.iloc[:,:-2]
     all_crg_count = all_crg_count.T
     all_crg_count["std"] = all_crg_count.std(axis=1).round(3)
-    all_crg_count_std = all_crg_count.loc[all_crg_count["std"] != 0].T[:-1].reset_index(drop=True)
-    logging.info(f"Number of residues that change the protonation state: {len(all_crg_count_std.columns)-1}")
+    all_crg_count_std = (all_crg_count.loc[all_crg_count["std"] != 0].T[:-1]
+                         .reset_index(drop=True)
+    )
+    logging.info(("Number of residues that change the protonation state: ",
+                  f"{len(all_crg_count_std.columns)-1}"))
 
     return all_crg_count_std
 
 
-def rename_order_residues(input_df: pd.DataFrame) -> pd.DataFrame:
+def rename_order_residues(df: pd.DataFrame) -> pd.DataFrame:
     """
     Return the amended dataframe:
         Rename the residues with shorter name;
@@ -449,7 +459,7 @@ def rename_order_residues(input_df: pd.DataFrame) -> pd.DataFrame:
     ub_q_list = []
     non_res_list = []
 
-    for c in input_df.columns[:-1]:
+    for c in df.columns[:-1]:
         rename_dict[c] = f"{c[3]}_{c[:3]}{c[4:8]}{c[8:]}"
 
     rename_dict["Count"] = "Count"
@@ -473,14 +483,16 @@ def rename_order_residues(input_df: pd.DataFrame) -> pd.DataFrame:
             else:
                 non_res_list.append(v)
 
-    input_df = input_df.rename(rename_dict, axis=1)
+    df = df.rename(rename_dict, axis=1)
     col_order_list = [*acid_list, *polar_rest_list, *base_list, *ub_q_list, *non_res_list]
-    input_df = input_df[col_order_list]
 
-    return input_df
+    return df[col_order_list]
 
 
-def drop_corr_criterion(df: pd.DataFrame, cutoff: float=0.0):
+def filter_weightedcorr(df: pd.DataFrame, cutoff: float=0.0) -> pd.DataFrame:
+    """Filter the weighted correlation of df by cutoff.
+    Uses WeightedCorr class.
+    """
 
     wc_df = WeightedCorr(df=df, wcol="Count")(method="pearson")
     for i in wc_df.columns:
@@ -526,9 +538,11 @@ def get_topN_crg_microstates(mcce_dir: Path,
 
     ms_by_E = mc.sort_microstates()
     ms_orig_lst = [[ms.E, ms.count, ms.state] for ms in ms_by_E]
-    ms_free_residues = free_residues_list(conformers, mc.free_residues)
-    background_charge, fixed_res_crg_df = fixed_residues(conformers,
-                                                         mc.fixed_iconfs,
+    ms_free_res_df = msa.free_residues_df(mc.free_residues,
+                                          conformers,
+                                          colname="Residue")
+    background_charge, fixed_res_crg_df = fixed_residues(mc.fixed_iconfs,
+                                                         conformers,
                                                          res_of_interest)
     id_vs_charge = id_crg_relation(conformers)
     crg_orig_lst = convert_ms_crg(ms_orig_lst, id_vs_charge)
@@ -536,7 +550,7 @@ def get_topN_crg_microstates(mcce_dir: Path,
     all_res_crg_count_df = concat_crgms_dfs(charge_ms_info[0],
                                             charge_ms_info[1],
                                             charge_ms_info[2],
-                                            ms_free_residues,
+                                            ms_free_res_df,
                                             background_charge,
                                             res_of_interest)
     if top_n <= 0:
@@ -545,7 +559,7 @@ def get_topN_crg_microstates(mcce_dir: Path,
 
     top_df = all_res_crg_count_df[:top_n].T
     if to_csv:
-        top_fp = mcce_dir.joinpath(f"top_{top_n}_crg_ms.csv") 
+        top_fp = mcce_dir.joinpath(f"top_{top_n}_crg_ms.csv")
         top_df.to_csv(top_fp)
         logger.info(f"Top {top_n} crg ms file: {top_fp}")
 
@@ -573,21 +587,26 @@ def crg_msa_with_correlation(mcce_dir: Path,
 
     plot_hist_by_ms_energy(ms_orig_lst, mcce_dir)
 
-    ms_free_residues = free_residues_list(conformers, mc.free_residues)
-    background_charge, fixed_res_crg_df = fixed_residues(conformers,
-                                                         mc.fixed_iconfs,
+    ms_free_res_df = msa.free_residues_df(mc.free_residues,
+                                          conformers,
+                                          colname="Residue")
+
+    background_charge, fixed_res_crg_df = fixed_residues(mc.fixed_iconfs,
+                                                         conformers,
                                                          res_of_interest)
 
     id_vs_charge = id_crg_relation(conformers)
     crg_orig_lst = convert_ms_crg(ms_orig_lst, id_vs_charge)
 
     charge_ms_info = find_uniq_crgms_count_order(crg_orig_lst)
-    plots_unique_crg_histogram(charge_ms_info, background_charge, mcce_dir)
+    plots_unique_crg_histogram(charge_ms_info,
+                               background_charge,
+                               mcce_dir)
 
     free_res_crg_count_df = concat_crgms_dfs(charge_ms_info[0],
                                              charge_ms_info[1],
                                              charge_ms_info[2],
-                                             ms_free_residues,
+                                             ms_free_res_df,
                                              background_charge,
                                              res_of_interest)
 
@@ -600,7 +619,7 @@ def crg_msa_with_correlation(mcce_dir: Path,
 
     all_crg_count_std = correlation_data_parsing(free_res_crg_count_df)
     df = rename_order_residues(all_crg_count_std)
-    df_correlation= drop_corr_criterion(df, cutoff=corr_cutoff)
+    df_correlation = filter_weightedcorr(df, cutoff=corr_cutoff)
     corr_heat_map(df_correlation, mcce_dir)
 
     logger.info("Charge microstate analysis with correlation over.") 
@@ -629,7 +648,8 @@ def crgmsa_parser() -> ArgumentParser:
     )
     p.add_argument(
         "-res_of_interest",
-        type=list,
+        nargs='+',  # 1 or more
+        type=str,
         default=IONIZABLES,
         help="List of residues of interest; default: %(default)s."
     )
@@ -642,9 +662,12 @@ def crgmsa_parser() -> ArgumentParser:
     p.add_argument(
         "-top_n",
         type=int,
-        # try None as default: if not None: call get_topN_crgma
+        # if not None: call get_topN_crgma
         default=None,
-        help="Save the top n charge ms to a file named top_<N>_crg_ms.csv: %(default)s."
+        help="""Save the top n charge ms to a file named top_<top_n>_crg_ms.csv.
+        This option is a switch: if present, get_topN_crg_microstates is called.
+        if not, crg_msa_with_correlation is called; %(default)s.
+        """
     )
     return p
 
