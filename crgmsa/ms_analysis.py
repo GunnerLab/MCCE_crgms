@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 
-import numpy as np
 import operator
-import pandas as pd
 import sys
-from typing import List, Tuple, Union
 import zlib
+from typing import List, Tuple, Union
+
+import numpy as np
+import pandas as pd
 
 # TODO: Fix functions so that they work via import;
 
@@ -27,11 +28,7 @@ class Microstate:
     def _check_operand(self, other):
         """Fails on missing attribute."""
 
-        if not (
-            hasattr(other, "state")
-            and hasattr(other, "E")
-            and hasattr(other, "count")
-        ):
+        if not (hasattr(other, "state") and hasattr(other, "E") and hasattr(other, "count")):
             return NotImplemented("Comparison with non Microstate object.")
         return
 
@@ -56,6 +53,7 @@ class Conformer:
     """Minimal Conformer class for use in microstate analysis.
     Attributes: iconf, confid, ires, resid, crg.
     """
+
     def __init__(self):
         self.iconf = 0
         self.confid = ""
@@ -67,7 +65,7 @@ class Conformer:
         fields = line.split()
         self.iconf = int(fields[0]) - 1
         self.confid = fields[1]
-        self.resid = self.confid[:3]+self.confid[5:11]
+        self.resid = self.confid[:3] + self.confid[5:11]
         self.crg = float(fields[4])
 
 
@@ -85,16 +83,16 @@ class MSout:
         self.fixed_crg = 0.0
         self.fixed_ne = 0.0
         self.fixed_nh = 0.0
-        self.free_residues = []   # free residues, referred by conformer indices
-        self.iconf2ires = {}      # from conformer index to free residue index
-        self.microstates = {}     # dict of Microstate objects
+        self.free_residues = []  # free residues, referred by conformer indices
+        self.iconf2ires = {}  # from conformer index to free residue index
+        self.microstates = {}  # dict of Microstate objects
         self.conformers = []
 
         self.load_msout(fname)
 
     def load_msout(self, fname):
         lines = open(fname).readlines()
-        #print(f"MSout.load_msout :: {len(lines) = :,}")
+        # print(f"MSout.load_msout :: {len(lines) = :,}")
 
         # Get a valid line
         while True:
@@ -156,7 +154,7 @@ class MSout:
         self.N_ms = 0
 
         for line in lines:
-            if line.find("MC:") == 0:   # ms starts
+            if line.find("MC:") == 0:  # ms starts
                 found_mc = True
                 newmc = True
                 continue
@@ -223,9 +221,7 @@ class MSout:
 
         kind = kind.lower()
         if kind not in ["deterministic", "random"]:
-            raise ValueError(
-                f"Values for `kind` are 'deterministic' or 'random'; Given: {kind}"
-            )
+            raise ValueError(f"Values for `kind` are 'deterministic' or 'random'; Given: {kind}")
 
         ms_sampled = []
         ms_list = list(self.microstates.values())
@@ -233,14 +229,10 @@ class MSout:
         sampled_cumsum = np.cumsum([mc.count for mc in ms_list])
 
         if kind == "deterministic":
-            sampled_ms_indices = np.arange(
-                size, counts - size, counts / size, dtype=int
-            )
+            sampled_ms_indices = np.arange(size, counts - size, counts / size, dtype=int)
         else:
             rng = np.random.default_rng(seed=seed)
-            sampled_ms_indices = rng.integers(
-                low=0, high=counts, size=size, endpoint=True
-            )
+            sampled_ms_indices = rng.integers(low=0, high=counts, size=size, endpoint=True)
 
         for i, c in enumerate(sampled_ms_indices):
             ms_sel_index = np.where((sampled_cumsum - c) > 0)[0][0]
@@ -248,7 +240,7 @@ class MSout:
 
         return ms_sampled
 
-    def sort_microstates(self, sort_by:str = "E", sort_reverse:bool = False) -> list:
+    def sort_microstates(self, sort_by: str = "E", sort_reverse: bool = False) -> list:
         """Return the list of microstates sorted by one of these attributes: ["count", "E"],
         and in reverse order (descending) if sort_reverse is True.
         Args:
@@ -262,13 +254,10 @@ class MSout:
             print("'sort_by' must be a valid microstate attribute; choices: ['count', 'E']")
             return None
 
-        return sorted(list(self.microstates.values()),
-                      key=operator.attrgetter(sort_by),
-                      reverse=sort_reverse)
+        return sorted(list(self.microstates.values()), key=operator.attrgetter(sort_by), reverse=sort_reverse)
 
 
 def read_conformers(head3_path: str):
-
     conformers = []
     lines = open(head3_path).readlines()
     lines.pop(0)
@@ -279,10 +268,11 @@ def read_conformers(head3_path: str):
 
     return conformers
 
-# conformers will be an empty list if module is imported
-# or called outside of a MCCE output folder
-# or if head3.lst is missing.
+
 try:
+    # conformers will be an empty list if module is imported
+    # or called outside of a MCCE output folder
+    # or if head3.lst is missing.
     conformers = read_conformers("head3.lst")
 except FileNotFoundError:
     conformers = []
@@ -309,16 +299,15 @@ class Charge_Microstate:
         return [int(i) for i in zlib.decompress(self.crg_stateid).decode().split()]
 
     def __str__(self):
-        return f"Charge_Microstate(\n\tcount = {self.count:,},\n\tE = {self.E:,.2f},\n\tstate = {self.state()}\n)"
+        s = f"Charge_Microstate(\n\tcount = {self.count:,},\n"
+        s = s + f"\tE = {self.E:,.2f},\n\tstate = {self.state()}\n"
+
+        return s
 
     def _check_operand(self, other):
         """Fails on missing attribute."""
 
-        if not (
-            hasattr(other, "crg_stateid")
-            and hasattr(other, "E")
-            and hasattr(other, "count")
-        ):
+        if not (hasattr(other, "crg_stateid") and hasattr(other, "E") and hasattr(other, "count")):
             return NotImplemented("Comparison with non Charge_Microstate object.")
         return
 
@@ -370,9 +359,9 @@ def ms_to_charge_ms(microstates: Union[dict, list], conformers: list) -> list:
     return charge_microstates
 
 
-def sort_charge_microstates(charge_microstates: list,
-                            sort_by: str = "count",
-                            sort_reverse: bool = True) -> Union[list, None]:
+def sort_charge_microstates(
+    charge_microstates: list, sort_by: str = "count", sort_reverse: bool = True
+) -> Union[list, None]:
     """Return the list of charge_microstates sorted by one of these attributes:
     ["count", "E", "total_E"], and in reverse order (descending) if sort_reverse
     is True.
@@ -387,32 +376,29 @@ def sort_charge_microstates(charge_microstates: list,
         print("Invalid attribute in 'sort_by'. Choices: ['count', 'E', 'total_E']")
         return None
 
-    return sorted(charge_microstates,
-                  key=operator.attrgetter(sort_by),
-                  reverse=sort_reverse)
+    return sorted(charge_microstates, key=operator.attrgetter(sort_by), reverse=sort_reverse)
 
 
-def topN_charge_microstates(charge_microstates: list,
-                            N: int = 1,
-                            sort_by: str = "count",
-                            sort_reverse: bool = True) -> Union[list, None]:
+def topN_charge_microstates(
+    charge_microstates: list, N: int = 1, sort_by: str = "count", sort_reverse: bool = True
+) -> Union[list, None]:
     """Return the top N entries from the list of charge_microstates sorted by
-       one of ["count", "E", "total_E"], and in descending order if sort_reverse
-       is True.
-       Note:
-        The 'topN' in this context means:
-          - the most frequent if sort_by is 'count'
-          - the most favorable (lowest) energy otherwise.
-       Thus, the logical sort args are ('count', sort_reverse=True), or 
-       (["E" | "total_E"], sort_reverse=False).
-       A warning is displayed for any other combination and None is returned.
-       Args:
-       charge_microstates (list): list of Charge_Microstate instances;
-       N (int, 1): Number of entries to return;
-       sort_by (str, "count"): Attribute as sort key;
-       sort_reverse (bool, True): Sort order: descending if True (default).
-       Return:
-       A list of N Charge_Microstate instances.
+    one of ["count", "E", "total_E"], and in descending order if sort_reverse
+    is True.
+    Note:
+     The 'topN' in this context means:
+       - the most frequent if sort_by is 'count'
+       - the most favorable (lowest) energy otherwise.
+    Thus, the logical sort args are ('count', sort_reverse=True), or
+    (["E" | "total_E"], sort_reverse=False).
+    A warning is displayed for any other combination and None is returned.
+    Args:
+    charge_microstates (list): list of Charge_Microstate instances;
+    N (int, 1): Number of entries to return;
+    sort_by (str, "count"): Attribute as sort key;
+    sort_reverse (bool, True): Sort order: descending if True (default).
+    Return:
+    A list of N Charge_Microstate instances.
     """
 
     # validate sort args:
@@ -427,9 +413,7 @@ def topN_charge_microstates(charge_microstates: list,
         print(msg.format(sort_by, "ascendingly", "False"))
         return None
 
-    sorted_charge_ms = sort_charge_microstates(charge_microstates,
-                                               sort_by,
-                                               sort_reverse)
+    sorted_charge_ms = sort_charge_microstates(charge_microstates, sort_by, sort_reverse)
 
     return sorted_charge_ms[:N]
 
@@ -473,13 +457,13 @@ def groupms_byenergy(microstates: list, ticks: List[float]) -> list:
 
     N = len(ticks)
     ticks.sort()
-    ticks.append(1.0e100)    # add a big number as the last boundary
+    ticks.append(1.0e100)  # add a big number as the last boundary
     resulted_bands = [[] for i in range(N)]
 
     for ms in microstates:
         it = -1
         for itick in range(N):
-            if ticks[itick] <= ms.E < ticks[itick+1]:
+            if ticks[itick] <= ms.E < ticks[itick + 1]:
                 it = itick
                 break
         if it >= 0:
@@ -497,7 +481,8 @@ def groupms_byiconf(microstates: list, iconfs: list) -> tuple:
       microstates (list): List of microstates
       iconfs (list): List of conformer indices.
     Return:
-      A 2-tuple: Microstates with any of `iconfs`, microstates with none
+      A 2-tuple: (Microstates with any of `iconfs`,
+                  microstates with none)
     """
 
     ingroup = []
@@ -520,7 +505,7 @@ def groupms_byconfid(microstates: list, confids: list) -> tuple:
     Divide the microstates by the conformers ids provided in `confids`
     into 2 groups: the first contains ALL of the given conformers, the
     second one contains does not.
-    Note: An ID is a match if it is a substring of the conformer name. 
+    Note: An ID is a match if it is a substring of the conformer name.
     Args:
       microstates (list): List of microstates
       confids (list): List of conformer ids.
@@ -564,9 +549,9 @@ def ms_energy_stat(microstates: list) -> tuple:
         elif highest_E < ms.E:
             highest_E = ms.E
         N_ms += ms.count
-        total_E += ms.E*ms.count
+        total_E += ms.E * ms.count
 
-    average_E = total_E/N_ms
+    average_E = total_E / N_ms
 
     return lowest_E, average_E, highest_E
 
@@ -592,7 +577,7 @@ def ms_convert2occ(microstates: list) -> dict:
                 occurance[ic] = ms.count
 
     for key in occurance:
-        occ[key] = occurance[key]/N_ms
+        occ[key] = occurance[key] / N_ms
 
     return occ
 
@@ -616,7 +601,7 @@ def ms_convert2sumcrg(microstates: list, free_res: list) -> list:
             ir = iconf2ires[ic]
             charges_total[ir] += conformers[ic].crg * ms.count
 
-    charges = [x/N_ms for x in charges_total]
+    charges = [x / N_ms for x in charges_total]
 
     return charges
 
@@ -628,9 +613,9 @@ def e2occ(energies: list) -> float:
 
     e = np.array(energies)
     e = e - min(e)
-    Pi_raw = np.exp(-Kcal2kT*e)
+    Pi_raw = np.exp(-Kcal2kT * e)
     Pi_sum = sum(Pi_raw)
-    Pi_norm = Pi_raw/Pi_sum
+    Pi_norm = Pi_raw / Pi_sum
 
     return Pi_norm
 
@@ -638,7 +623,7 @@ def e2occ(energies: list) -> float:
 def bhata_distance(prob1: list, prob2: list) -> float:
     """Bhattacharyya distance between 2 probability distributions."""
 
-    d_max = 10000.0   # Max possible value
+    d_max = 10000.0  # Max possible value
     p1 = np.array(prob1) / sum(prob1)
     p2 = np.array(prob2) / sum(prob2)
     if len(p1) != len(p2):
@@ -653,9 +638,7 @@ def bhata_distance(prob1: list, prob2: list) -> float:
     return d
 
 
-def free_residues_df(free_res:list,
-                     conformers:list,
-                     colname: str="FreeRes") -> pd.DataFrame:
+def free_residues_df(free_res: list, conformers: list, colname: str = "FreeRes") -> pd.DataFrame:
     """Return the free residues' ids in a pandas DataFrame."""
 
     free_residues = [conformers[res[0]].resid for res in free_res]
@@ -663,7 +646,7 @@ def free_residues_df(free_res:list,
     return pd.DataFrame(free_residues, columns=[colname])
 
 
-def fixed_residues_charge(conformers:list, fixed_iconfs:list) -> Tuple[float, dict]:
+def fixed_residues_charge(conformers: list, fixed_iconfs: list) -> Tuple[float, dict]:
     """
     Return:
       A 2-tuple:
@@ -732,7 +715,6 @@ def whatchanged_res(msgroup1: list, msgroup2: list, free_res: list) -> list:
 
 
 if __name__ == "__main__":
-
     msout = MSout("ms_out/pH4eH0ms.txt")
     # e_step = (msout.highest_E - msout.lowest_E)/20
     # ticks = [msout.lowest_E + e_step*(i) for i in range(20)]

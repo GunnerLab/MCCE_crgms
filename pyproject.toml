@@ -1,0 +1,68 @@
+# pyproject.toml
+
+[build-system]
+requires = ["setuptools>=64", "wheel", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crgmsa"
+dynamic = ["version"]
+description = "Charge MCCE microstates analysis with weighted correlation & topN function."
+readme = "README.md"
+authors = [
+    {name = "Cat Chenal @ GunnerLab"},
+]
+maintainers = [
+    {name = "Cat Chenal @ GunnerLab"},
+]
+license = {file = "LICENSE"}
+keywords = [
+    "biophysics",
+    "proteomics",
+    "cheminformatics",
+    "drug design",
+    "Monte Carlo simulation",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Biophysicists, Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+ ]
+
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "scipy",
+    "pandas",
+    "ipykernel",
+    "matplotlib",
+    "seaborn",
+    "pytest",
+    "pre-commit",
+]
+
+[project.scripts]
+ms_crg_analysis.py = "crgmsa.ms_crg_analysis:crgmsa_cli"
+
+[project.urls]
+Source = "https://github.com/GunnerLab/MCCE_crgms"
+
+[tool.setuptools.packages]
+find = {}
+
+[tool.setuptools_scm]
+local_scheme = "no-local-version"  # required for PyPI and TestPyPI
+version_file = "crgmsa/_version.py"
+
+[flake8]
+ignore = ['E203', 'E266', 'E501', 'W503', 'F403', 'F401']
+max-line-length = 120
+
+[tool.black]
+line-length = 120
+target-version = ['py310']
