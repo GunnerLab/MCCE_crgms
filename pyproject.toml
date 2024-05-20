@@ -47,7 +47,7 @@ dependencies = [
 ]
 
 [project.scripts]
-ms_crg_analysis.py = "crgmsa.ms_crg_analysis:crgmsa_cli"
+"ms_crg_analysis.py" = "crgmsa.ms_crg_analysis:crgmsa_cli"
 
 [project.urls]
 Source = "https://github.com/GunnerLab/MCCE_crgms"
